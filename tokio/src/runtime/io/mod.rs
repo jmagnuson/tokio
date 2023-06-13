@@ -10,7 +10,7 @@ mod metrics;
 
 use crate::io::interest::Interest;
 use crate::io::ready::Ready;
-use crate::runtime::driver;
+use crate::runtime::{driver, ParkShim};
 use crate::util::slab::{self, Slab};
 use crate::{loom::sync::RwLock, util::bit};
 
@@ -38,6 +38,9 @@ pub(crate) struct Driver {
 
     /// The system event queue.
     poll: mio::Poll,
+
+    /// Mechanism for injecting an alternate event loop into the runtime.
+    park_shim: Option<ParkShim>,
 }
 
 /// A reference to an I/O driver.
@@ -117,7 +120,7 @@ fn _assert_kinds() {
 impl Driver {
     /// Creates a new event loop, returning any error that happened during the
     /// creation.
-    pub(crate) fn new(nevents: usize) -> io::Result<(Driver, Handle)> {
+    pub(crate) fn new(nevents: usize, park_shim: Option<ParkShim>) -> io::Result<(Driver, Handle)> {
         let poll = mio::Poll::new()?;
         #[cfg(not(tokio_wasi))]
         let waker = mio::Waker::new(poll.registry(), TOKEN_WAKEUP)?;
@@ -132,6 +135,7 @@ impl Driver {
             events: mio::Events::with_capacity(nevents),
             poll,
             resources: slab,
+            park_shim,
         };
 
         let handle = Handle {
@@ -170,6 +174,13 @@ impl Driver {
     fn turn(&mut self, handle: &Handle, max_wait: Option<Duration>) {
         // How often to call `compact()` on the resource slab
         const COMPACT_INTERVAL: u8 = 255;
+
+        // Run custom event loop if park shim is enabled
+        let max_wait = if let Some(ref mut park_shim) = self.park_shim {
+            park_shim(max_wait)
+        } else {
+            max_wait
+        };
 
         self.tick = self.tick.wrapping_add(1);
 

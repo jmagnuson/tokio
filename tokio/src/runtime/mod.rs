@@ -211,6 +211,8 @@ cfg_rt! {
     mod config;
     use config::Config;
 
+    use crate::time::Duration;
+
     mod blocking;
     #[cfg_attr(tokio_wasi, allow(unused_imports))]
     pub(crate) use blocking::spawn_blocking;
@@ -262,4 +264,8 @@ cfg_rt! {
 
     /// After thread starts / before thread stops
     type Callback = std::sync::Arc<dyn Fn() + Send + Sync>;
+
+    /// Takes the `Duration` for the underlying `Park` and uses it, giving back some modified
+    /// version of the duration for use.
+    type ParkShim = std::sync::Arc<dyn Fn(Option<Duration>) -> Option<Duration> + Send + Sync>;
 }

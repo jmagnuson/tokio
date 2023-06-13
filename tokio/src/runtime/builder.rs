@@ -1,5 +1,5 @@
 use crate::runtime::handle::Handle;
-use crate::runtime::{blocking, driver, Callback, HistogramBuilder, Runtime};
+use crate::runtime::{blocking, driver, Callback, HistogramBuilder, ParkShim, Runtime};
 use crate::util::rand::{RngSeed, RngSeedGenerator};
 
 use std::fmt;
@@ -80,6 +80,9 @@ pub struct Builder {
 
     /// Customizable keep alive timeout for BlockingPool
     pub(super) keep_alive: Option<Duration>,
+
+    /// Customizable park shim
+    pub(super) park_shim: Option<ParkShim>,
 
     /// How many ticks before pulling a task from the global/remote queue?
     ///
@@ -269,6 +272,8 @@ impl Builder {
             after_unpark: None,
 
             keep_alive: None,
+
+            park_shim: None,
 
             // Defaults for these values depend on the scheduler kind, so we get them
             // as parameters.
@@ -670,6 +675,7 @@ impl Builder {
             enable_time: self.enable_time,
             start_paused: self.start_paused,
             nevents: self.nevents,
+            park_shim: self.park_shim.clone(),
         }
     }
 
@@ -691,6 +697,18 @@ impl Builder {
     /// ```
     pub fn thread_keep_alive(&mut self, duration: Duration) -> &mut Self {
         self.keep_alive = Some(duration);
+        self
+    }
+
+    /// Adds a park shim that dictates what the underlying `Park` duration will use.
+    pub fn park_shim<F>(&mut self, f: F) -> &mut Self
+    where
+        F: Fn(Option<std::time::Duration>) -> Option<std::time::Duration>
+            + Sync
+            + Send
+            + 'static,
+    {
+        self.park_shim = Some(std::sync::Arc::new(f));
         self
     }
 
