@@ -295,6 +295,11 @@ impl Handle {
         Ok(())
     }
 
+    /// Acquire a reference to the `mio::Registry` associated with this `Handle`.
+    pub(super) fn registry(&self) -> &mio::Registry {
+        &self.registry
+    }
+
     /// shutdown the dispatcher.
     fn shutdown(&self) -> bool {
         let mut io = self.io_dispatch.write().unwrap();

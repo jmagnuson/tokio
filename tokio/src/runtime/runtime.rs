@@ -413,6 +413,11 @@ impl Runtime {
     pub fn shutdown_background(self) {
         self.shutdown_timeout(Duration::from_nanos(0))
     }
+
+    /// Get a reference to the `mio::Registry` associated with the tokio driver.
+    pub fn driver_registry(&self) -> Option<&mio::Registry> {
+        self.handle.inner.driver().io.as_ref().map(|driver| driver.registry())
+    }
 }
 
 #[allow(clippy::single_match)] // there are comments in the error branch, so we don't want if-let
