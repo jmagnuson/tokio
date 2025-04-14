@@ -56,7 +56,16 @@ async fn open_options_create_new() {
 #[cfg(unix)]
 async fn open_options_mode() {
     // TESTING HACK: use Debug output to check the stored data
-    assert!(format!("{:?}", OpenOptions::new().mode(0o644)).contains("mode: 420 "));
+    let mode = format!("{:?}", OpenOptions::new().mode(0o644));
+
+    // Broke with https://github.com/rust-lang/rust/pull/122812 (Rust 1.79.0)
+    // Upstream fixes/changes:
+    //   - https://github.com/tokio-rs/tokio/pull/6538
+    //   - https://github.com/tokio-rs/tokio/pull/6978
+    assert!(
+        mode.contains("mode: 420 ") || mode.contains("mode: 0o000644 "),
+        "mode is: {mode}"
+    );
 }
 
 #[tokio::test]
